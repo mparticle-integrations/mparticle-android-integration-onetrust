@@ -1,8 +1,8 @@
-## Example Kit Integration
+## OneTrust Kit Integration
 
 [See here for more information](https://github.com/mParticle/mparticle-android-sdk/wiki/Kit-Development) on how to use this example to write a new kit.
 
-This repository contains the [Example](https://www.example.com/) integration for the [mParticle Android SDK](https://github.com/mParticle/mparticle-android-sdk).
+This repository contains the [OneTrust](https://www.onetrust.com) integration for the [mParticle Android SDK](https://github.com/mParticle/mparticle-android-sdk).
 
 ### Adding the integration
 
@@ -18,7 +18,7 @@ This repository contains the [Example](https://www.example.com/) integration for
 
 ### Documentation
 
-[Example integration](http://docs.mparticle.com/?java#REPLACEME)
+[OneTrust integration](http://docs.mparticle.com/?java#onetrust)
 
 ### License
 

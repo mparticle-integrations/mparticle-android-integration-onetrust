@@ -15,20 +15,16 @@ public class OneTrustKit extends KitIntegration {
     
     @Override
     protected List<ReportingMessage> onKitCreate(Map<String, String> settings, Context context) {
-        
         // Retrieve mParticle --> OneTrust mapping values
         String mobileMappingValues = settings.get(MP_MOBILE_CONSENT_GROUPS);
-
         // Save mapping to disk. Will be retrieved by OneTrust Mobile SDK
         saveToDisk(mobileMappingValues);
-
         return null;
     }
 
 
     @Override
     public String getName() {
-        //TODO: Replace this with your company name
         return "OneTrust";
     }
 
@@ -36,9 +32,6 @@ public class OneTrustKit extends KitIntegration {
 
     @Override
     public List<ReportingMessage> setOptOut(boolean optedOut) {
-        //TODO: Disable or enable your SDK when a user opts out.
-        //TODO: If your SDK can not be opted out of, return null
-        ReportingMessage optOutMessage = new ReportingMessage(this, ReportingMessage.MessageType.OPT_OUT, System.currentTimeMillis(), null);
         return null;
     }
     
