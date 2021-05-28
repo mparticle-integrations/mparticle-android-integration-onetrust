@@ -21,5 +21,6 @@ dependencies {
 
     //TODO: Option 2: Include your jar in ./libs only if you're not in Maven Central
     //TODO:           Please name the jar based on the version, ie AcmeSDK1234.jar
-    //compile fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    compileOnly 'com.onetrust.cmp:native-sdk:+'
 }
