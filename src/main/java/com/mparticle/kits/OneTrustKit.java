@@ -19,6 +19,7 @@ import com.mparticle.consent.GDPRConsent;
 import com.mparticle.identity.IdentityStateListener;
 import com.mparticle.identity.MParticleUser;
 import com.mparticle.internal.Logger;
+import com.mparticle.internal.MPUtility;
 import com.onetrust.otpublishers.headless.Public.Keys.OTBroadcastServiceKeys;
 import com.onetrust.otpublishers.headless.Public.OTPublishersHeadlessSDK;
 
@@ -65,7 +66,15 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
                 for (int i = 0; i < consentJSONArray.length(); i++) {
                     JSONObject consentJSONObject = consentJSONArray.optJSONObject(i);
 
-                    consentMapping.put(consentJSONObject.getString("value"), consentJSONObject.getString("map"));
+                    String value = consentJSONObject.optString("value");
+                    String map = consentJSONObject.optString("map");
+
+                    if (MPUtility.isEmpty(value) && MPUtility.isEmpty(map)) {
+                        Logger.warning("Consent Object is missing value and map: " + consentJSONObject.toString());
+                    } else {
+                        consentMapping.put(value, map);
+                    }
+
                 }
 
             } catch (JSONException jsonException) {
