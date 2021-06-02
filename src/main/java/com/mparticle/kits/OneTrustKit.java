@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -36,10 +37,9 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
 
     private final static String MP_MOBILE_CONSENT_GROUPS = "mobileConsentGroups";
     private final static String ONETRUST_PREFS = "OT_mP_Mapping";
-    private Context m_context;
 
     private BroadcastReceiver categoryReceiver;
-    final Map<String, String> consentMapping = new HashMap<String, String>();
+    final Map<String, String> consentMapping = new HashMap<>();
     boolean deferConsentApplication = false;
 
     @Override
@@ -89,8 +89,7 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
         categoryReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-
-                MParticleUser user = getCurrentUser();
+                MParticleUser user = getCurrentMParticleUser();
 
                 if (user != null) {
                     String category = intent.getAction();
@@ -107,7 +106,7 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
             }
         };
 
-        MParticleUser user = getCurrentUser();
+        MParticleUser user = getCurrentMParticleUser();
         if (user != null) {
             applyCurrentConsentState(user);
         } else {
@@ -121,19 +120,23 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
 
     @Override
     public void onUserIdentified(@NonNull MParticleUser user, @Nullable MParticleUser previousUser) {
-        if (deferConsentApplication) {
-            applyCurrentConsentState(user);
-            deferConsentApplication = false;
+        user = getCurrentMParticleUser();
+        if (user != null) {
+            if (deferConsentApplication) {
+                applyCurrentConsentState(user);
+                deferConsentApplication = false;
+            }
         }
     }
 
     private void applyCurrentConsentState(final MParticleUser user) {
+        OTPublishersHeadlessSDK oneTrustSdk = new OTPublishersHeadlessSDK(getContext());
         for(final String consentElement: consentMapping.keySet()) {
             // Register receiver from above based on cookie value dispatched by OneTrust SDK
             getContext().registerReceiver(categoryReceiver, new IntentFilter(consentElement));
 
             // Fetch Consent Status from OneTrust based on cookie value
-            final int status = new OTPublishersHeadlessSDK(getContext()).getConsentStatusForGroupId(consentElement);
+            final int status = oneTrustSdk.getConsentStatusForGroupId(consentElement);
 
             // Dispatch creation of initial consent state till after init is done
             new Handler().post(new Runnable() {
@@ -150,7 +153,7 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
     //  1 = Consent Given
     //  0 = Consent Not Given
     // -1 = Consent has not been collected/ sdk is not yet initialized
-    private void createConsentEvent(MParticleUser user, String purpose, Integer status) {
+    private void createConsentEvent(@NonNull MParticleUser user, String purpose, Integer status) {
         GDPRConsent gdprConsent = GDPRConsent
                 .builder(status.intValue() == 1)
                 .timestamp(System.currentTimeMillis())
@@ -162,6 +165,16 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
                 .build();
 
         user.setConsentState(state);
+    }
+
+    @Nullable
+    private MParticleUser getCurrentMParticleUser() {
+        MParticle instance = MParticle.getInstance();
+        if (instance != null) {
+            return instance.Identity().getCurrentUser();
+        } else {
+            return null;
+        }
     }
 
      public void saveToDisk(String mappingData){
