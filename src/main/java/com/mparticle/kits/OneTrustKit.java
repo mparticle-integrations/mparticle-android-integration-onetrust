@@ -94,19 +94,18 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
 
                 if (user != null) {
                     String category = intent.getAction();
+                    String purpose = consentMapping.get(category);
                     int status = intent.getIntExtra(OTBroadcastServiceKeys.EVENT_STATUS, -1);
 
                     Log.i("BroadcastService", "MP OT Intent name: " + category + " status = " + status);
 
-                    OneTrustKit.this.createConsentEvent(user, category, status);
+                    OneTrustKit.this.createConsentEvent(user, purpose, status);
                 } else {
                     deferConsentApplication = true;
                 }
 
             }
         };
-
-
 
         MParticleUser user = getCurrentUser();
         if (user != null) {
