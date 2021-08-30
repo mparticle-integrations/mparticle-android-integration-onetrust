@@ -35,6 +35,8 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
 
     private final static String MP_MOBILE_CONSENT_GROUPS = "mobileConsentGroups";
     private final static String ONETRUST_PREFS = "OT_mP_Mapping";
+    private final static String PURPOSE = "purpose";
+    private final static String REGULATION = "regulation";
     private enum ConsentRegulation {
         GDPR,
         CCPA,
@@ -42,7 +44,7 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
     private final static String CCPA_PURPOSE = "data_sale_opt_out";
 
     private BroadcastReceiver categoryReceiver;
-    final Map<String, String> consentMapping = new HashMap();
+    final Map<String, Map<String, String>> consentMapping = new HashMap();
     boolean deferConsentApplication = false;
 
     @Override
@@ -69,13 +71,20 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
                 for (int i = 0; i < consentJSONArray.length(); i++) {
                     JSONObject consentJSONObject = consentJSONArray.optJSONObject(i);
 
-                    String value = consentJSONObject.optString("value");
-                    String map = consentJSONObject.optString("map");
+                    String cookieValue = consentJSONObject.optString("value");
+                    String purpose = consentJSONObject.optString("map");
+                    String regulation = ConsentRegulation.GDPR.toString();
 
-                    if (MPUtility.isEmpty(value) && MPUtility.isEmpty(map)) {
+                    if (purpose.equals(CCPA_PURPOSE)) {
+                        regulation = ConsentRegulation.CCPA.toString();
+                    }
+
+                    if (MPUtility.isEmpty(cookieValue) && MPUtility.isEmpty(purpose)) {
                         Logger.warning("Consent Object is missing value and map: " + consentJSONObject.toString());
                     } else {
-                        consentMapping.put(value, map);
+                        consentMapping.put(cookieValue, new HashMap());
+                        consentMapping.get(cookieValue).put(PURPOSE, purpose);
+                        consentMapping.get(cookieValue).put(REGULATION, regulation);
                     }
 
                 }
@@ -97,18 +106,13 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
 
                 if (user != null) {
                     String category = intent.getAction();
-                    String purpose = consentMapping.get(category);
-                    ConsentRegulation regulation = ConsentRegulation.GDPR;
-
-                    if (purpose == CCPA_PURPOSE) {
-                        regulation = ConsentRegulation.CCPA;
-                    }
-
+                    String purpose = consentMapping.get(category).get(PURPOSE);
+                    ConsentRegulation regulation = ConsentRegulation.valueOf(consentMapping.get(category).get(REGULATION));
                     int status = intent.getIntExtra(OTBroadcastServiceKeys.EVENT_STATUS, -1);
 
                     Log.i("BroadcastService", "MP OT Intent name: " + category + " status = " + status);
 
-                    OneTrustKit.this.createConsentEvent(user, purpose, status);
+                    OneTrustKit.this.createConsentEvent(user, purpose, status, regulation);
                 } else {
                     deferConsentApplication = true;
                 }
@@ -145,12 +149,14 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
 
             // Fetch Consent Status from OneTrust based on cookie value
             final int status = oneTrustSdk.getConsentStatusForGroupId(consentElement);
+            final String purpose = consentMapping.get(consentElement).get(PURPOSE);
+            final ConsentRegulation regulation = ConsentRegulation.valueOf(consentMapping.get(consentElement).get(REGULATION));
 
             // Dispatch creation of initial consent state till after init is done
             new Handler().post(new Runnable() {
                 @Override
                 public void run() {
-                    OneTrustKit.this.createConsentEvent(user, consentMapping.get(consentElement), status);
+                    OneTrustKit.this.createConsentEvent(user, purpose, status, regulation);
                 }
             });
         }
@@ -161,14 +167,7 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
     //  1 = Consent Given
     //  0 = Consent Not Given
     // -1 = Consent has not been collected/ sdk is not yet initialized
-    private void createConsentEvent(@NonNull MParticleUser user, String purpose, Integer status) {
-
-        ConsentRegulation regulation = ConsentRegulation.GDPR;
-
-        if (purpose == CCPA_PURPOSE) {
-            regulation = ConsentRegulation.CCPA;
-        }
-
+    private void createConsentEvent(@NonNull MParticleUser user, String purpose, Integer status, ConsentRegulation regulation) {
         ConsentState state = null;
 
         switch (regulation) {
