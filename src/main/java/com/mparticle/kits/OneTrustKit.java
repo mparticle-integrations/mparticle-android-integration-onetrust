@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mparticle.MParticle;
+import com.mparticle.consent.CCPAConsent;
 import com.mparticle.consent.ConsentState;
 import com.mparticle.consent.GDPRConsent;
 import com.mparticle.identity.IdentityStateListener;
@@ -34,6 +35,11 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
 
     private final static String MP_MOBILE_CONSENT_GROUPS = "mobileConsentGroups";
     private final static String ONETRUST_PREFS = "OT_mP_Mapping";
+    private enum ConsentRegulation {
+        GDPR,
+        CCPA,
+    };
+    private final static String CCPA_PURPOSE = "data_sale_opt_out";
 
     private BroadcastReceiver categoryReceiver;
     final Map<String, String> consentMapping = new HashMap();
@@ -92,6 +98,12 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
                 if (user != null) {
                     String category = intent.getAction();
                     String purpose = consentMapping.get(category);
+                    ConsentRegulation regulation = ConsentRegulation.GDPR;
+
+                    if (purpose == CCPA_PURPOSE) {
+                        regulation = ConsentRegulation.CCPA;
+                    }
+
                     int status = intent.getIntExtra(OTBroadcastServiceKeys.EVENT_STATUS, -1);
 
                     Log.i("BroadcastService", "MP OT Intent name: " + category + " status = " + status);
@@ -150,17 +162,45 @@ public class OneTrustKit extends KitIntegration implements IdentityStateListener
     //  0 = Consent Not Given
     // -1 = Consent has not been collected/ sdk is not yet initialized
     private void createConsentEvent(@NonNull MParticleUser user, String purpose, Integer status) {
-        GDPRConsent gdprConsent = GDPRConsent
-                .builder(status.intValue() == 1)
-                .timestamp(System.currentTimeMillis())
-                .build();
 
-        final ConsentState state = ConsentState
-                .builder()
-                .addGDPRConsentState(purpose, gdprConsent)
-                .build();
+        ConsentRegulation regulation = ConsentRegulation.GDPR;
 
-        user.setConsentState(state);
+        if (purpose == CCPA_PURPOSE) {
+            regulation = ConsentRegulation.CCPA;
+        }
+
+        ConsentState state = null;
+
+        switch (regulation) {
+            case GDPR:
+                GDPRConsent gdprConsent = GDPRConsent
+                        .builder(status.intValue() == 1)
+                        .timestamp(System.currentTimeMillis())
+                        .build();
+
+                state = ConsentState
+                        .builder()
+                        .addGDPRConsentState(purpose, gdprConsent)
+                        .build();
+                break;
+            case CCPA:
+                CCPAConsent ccpaConsent = CCPAConsent
+                        .builder(status.intValue() == 1)
+                        .timestamp(System.currentTimeMillis())
+                        .build();
+
+                state = ConsentState
+                        .builder()
+                        .setCCPAConsentState(ccpaConsent)
+                        .build();
+                break;
+            default:
+                Log.e("mParticle One Trust Kit", "Unknown Consent Regulation");
+        }
+
+        if (state != null) {
+            user.setConsentState(state);
+        }
     }
 
     @Nullable
