@@ -18,7 +18,7 @@ This repository contains the [OneTrust](https://www.onetrust.com) integration fo
 
 ### Documentation
 
-[OneTrust integration](http://docs.mparticle.com/?java#onetrust)
+[OneTrust integration](https://docs.mparticle.com/integrations/onetrust/event/)
 
 ### License
 
