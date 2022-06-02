@@ -1,6 +1,6 @@
 buildscript {
     if (!ext.hasProperty("kotlin_version")) {
-        ext.kotlin_version = '1.6.20'
+        ext.kotlin_version = '1.6.21'
     }
     if (!project.hasProperty('version') || project.version.equals('unspecified')) {
         project.version = '+'
