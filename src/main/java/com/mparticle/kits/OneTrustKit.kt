@@ -206,6 +206,7 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
     internal fun updateVendorConsents(consentMapping: Map<String, OneTrustConsent>, mode: String) {
         consentMapping
             .entries
+            .iterator()
             .forEach { (consentKey, mapping) ->
                 // Fetch consent keys from one trust and pre-populate
                 try {
