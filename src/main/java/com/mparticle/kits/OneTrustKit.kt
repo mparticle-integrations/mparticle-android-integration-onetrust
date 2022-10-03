@@ -30,9 +30,10 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
 
     private var categoryReceiver: BroadcastReceiver? = null
     private var deferConsentApplication = false
-    private val oneTrustSdk: OTPublishersHeadlessSDK by lazy { OTPublishersHeadlessSDK(getContext()) }
+    private val oneTrustSdk: OTPublishersHeadlessSDK by lazy { OTPublishersHeadlessSDK(context) }
 
-    private lateinit var purposeConsentMapping: Map<String, OneTrustConsent>;
+    private lateinit var purposeConsentMapping: Map<String, OneTrustConsent>
+
     private lateinit var venderGeneralConsentMapping: Map<String, OneTrustConsent>
     private lateinit var venderIABConsentMapping: Map<String, OneTrustConsent>
     private lateinit var venderGoogleConsentMapping: Map<String, OneTrustConsent>
@@ -121,7 +122,7 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
     }
 
     override fun getInstance(): Any {
-        return oneTrustSdk!!
+        return oneTrustSdk
     }
 
     override fun onUserIdentified(user: MParticleUser, previousUser: MParticleUser?) {
@@ -212,7 +213,7 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
                 try {
                     oneTrustSdk.getVendorDetails(mode, consentKey)
                         ?.let { details ->
-                            val status = details.optString("consent", null).toIntOrNull()
+                            val status = details.optString("consent", null.toString()).toIntOrNull()
                             createConsentEvent(mapping, status)
                         }
                 } catch (ex: NumberFormatException) {
@@ -225,7 +226,7 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
         val user = MParticle.getInstance()?.Identity()?.currentUser ?: Logger.warning("current user is not present").let { return }
         val consented = status == 1
 
-        var consentState = user.consentState.let { ConsentState.withConsentState(it) }
+        val consentState = user.consentState.let { ConsentState.withConsentState(it) }
         when (consentMapping.regulation) {
             ConsentRegulation.GDPR -> {
                 consentState.addGDPRConsentState(consentMapping.purpose, GDPRConsent.builder(consented).build())
@@ -253,8 +254,8 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
             Logger.warning(jse, "OneTrust parsing error")
             listOf()
         }.map {
-                    val cookieValue = it.optString("value", null)
-                    val purpose = it.optString("map", null)
+                    val cookieValue = it.optString("value", null.toString())
+                    val purpose = it.optString("map", null.toString())
                     val regulation = when (purpose) {
                         CCPAPurposeValue -> ConsentRegulation.CCPA
                         else -> ConsentRegulation.GDPR
