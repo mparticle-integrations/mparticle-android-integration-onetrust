@@ -1,7 +1,5 @@
 buildscript {
-    if (!ext.hasProperty("kotlin_version")) {
-        ext.kotlin_version = '1.7.20'
-    }
+    ext.kotlin_version = '1.7.20'
     if (!project.hasProperty('version') || project.version.equals('unspecified')) {
         project.version = '+'
     }
@@ -11,6 +9,7 @@ buildscript {
         mavenLocal()
         mavenCentral()
     }
+
     dependencies {
         classpath 'com.android.tools.build:gradle:7.3.0'
         classpath 'com.mparticle:android-kit-plugin:' + project.version
@@ -23,6 +22,5 @@ apply plugin: 'com.mparticle.kit'
 
 dependencies {
     testImplementation fileTree(dir: 'libs', include: ['*.jar'])
-    testImplementation project(":")
-    compileOnly 'com.onetrust.cmp:native-sdk:+'
+    compileOnly 'com.onetrust.cmp:native-sdk:202209.2.0.0'
 }

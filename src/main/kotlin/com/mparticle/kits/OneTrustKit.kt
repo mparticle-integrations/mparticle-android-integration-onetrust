@@ -213,7 +213,7 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
                 try {
                     oneTrustSdk.getVendorDetails(mode, consentKey)
                         ?.let { details ->
-                            val status = details.optString("consent", null.toString()).toIntOrNull()
+                            val status = details.optString("consent").toIntOrNull()
                             createConsentEvent(mapping, status)
                         }
                 } catch (ex: NumberFormatException) {
@@ -254,8 +254,8 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
             Logger.warning(jse, "OneTrust parsing error")
             listOf()
         }.map {
-                    val cookieValue = it.optString("value", null.toString())
-                    val purpose = it.optString("map", null.toString())
+                    val cookieValue = it.optString("value")
+                    val purpose = it.optString("map")
                     val regulation = when (purpose) {
                         CCPAPurposeValue -> ConsentRegulation.CCPA
                         else -> ConsentRegulation.GDPR

@@ -66,9 +66,8 @@ class KitTests {
                     {
                         "value": "topic3",
                         "map": "purpose3"
-                    },  
+                    },
                 ]
-                
             """.trimIndent()
         val map = kit.parseConsentMapping(consentMapping)
         assertEquals(3, map.size)
