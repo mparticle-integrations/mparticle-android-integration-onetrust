@@ -4,9 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
 import com.mparticle.MParticle
 import com.mparticle.consent.CCPAConsent
 import com.mparticle.consent.ConsentState
@@ -14,7 +11,6 @@ import com.mparticle.consent.GDPRConsent
 import com.mparticle.identity.IdentityStateListener
 import com.mparticle.identity.MParticleUser
 import com.mparticle.internal.Logger
-import com.mparticle.kits.KitIntegration.IdentityListener
 import com.onetrust.otpublishers.headless.Public.Keys.OTBroadcastServiceKeys
 import com.onetrust.otpublishers.headless.Public.OTPublishersHeadlessSDK
 import com.onetrust.otpublishers.headless.Public.OTVendorListMode
@@ -23,13 +19,17 @@ import org.json.JSONException
 import org.json.JSONObject
 
 
-class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
+class OneTrustKit : KitIntegration(), IdentityStateListener {
 
     internal enum class ConsentRegulation { GDPR, CCPA }
     internal class OneTrustConsent(val purpose: String, val regulation: ConsentRegulation)
 
-    private var categoryReceiver: BroadcastReceiver? = null
-    private var deferConsentApplication = false
+    private val consentUpdatedReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            processOneTrustConsents()
+        }
+    }
+
     private val oneTrustSdk: OTPublishersHeadlessSDK by lazy { OTPublishersHeadlessSDK(context) }
 
     private lateinit var purposeConsentMapping: Map<String, OneTrustConsent>
@@ -85,44 +85,10 @@ class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
         updateVendorConsents(venderGoogleConsentMapping, OTVendorListMode.GOOGLE)
         updateVendorConsents(venderGeneralConsentMapping, OTVendorListMode.GENERAL)
 
-        // Listen for One Trust Consent changes and create an mPartcle Consent
-        // Changes based on these events
-        // intent.getAction -> OT cookie name
-        // intent.getIntExtras(OTBroadcastServiceKeys.EVENT_STATUS) -> (bool-int) consented?
-        categoryReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                MParticle.getInstance()?.Identity()?.currentUser
-                    .let { user ->
-                        if (user == null) {
-                            Logger.info("MParticle user is not present, will defer consent application")
-                            deferConsentApplication = true
-                        } else {
-                            val category = intent.action
-                            purposeConsentMapping[category]
-                                ?.run {
-                                    val status =
-                                        intent.getIntExtra(OTBroadcastServiceKeys.EVENT_STATUS, -1)
-                                    Log.i(
-                                        "BroadcastService",
-                                        "Onetrust Intent name: $category status = $status"
-                                    )
-                                    setConsentStateEvent(user, purpose, status, regulation)
-                                }
-                                ?: Logger.warning("Onetrusk Kit does not have a puposeConsent mapping for $category")
-                        }
-                    }
-            }
-        }
-        MParticle.getInstance()?.Identity()?.currentUser
-            ?.also { applyCurrentConsentState(it) }
-            .let {
-                if (it == null) {
-                    Logger.info("MParticle user is not present, will defer consent application")
-                    deferConsentApplication = true
-                }
-            }
-
-        // Save mapping to disk. Will be retrieved by OneTrust Mobile SDK
+        context.registerReceiver(
+            consentUpdatedReceiver,
+            IntentFilter(OTBroadcastServiceKeys.OT_CONSENT_UPDATED)
+        )
         return listOf()
     }
 
@@ -130,50 +96,39 @@ class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
         return oneTrustSdk
     }
 
-    override fun onUserIdentified(user: MParticleUser, previousUser: MParticleUser?) {
-        setUserIdentified(user)
-    }
-
-    internal fun applyCurrentConsentState(user: MParticleUser) {
-        for (consentElement in purposeConsentMapping.keys) {
-            // Register receiver from above based on cookie value dispatched by OneTrust SDK
-            context.registerReceiver(categoryReceiver, IntentFilter(consentElement))
-
-            // Fetch Consent Status from OneTrust based on cookie value
-            val status = oneTrustSdk.getConsentStatusForGroupId(consentElement)
-            purposeConsentMapping[consentElement]?.apply {
-                // Dispatch creation of initial consent state till after init is done
-                Handler(Looper.myLooper() ?: Looper.getMainLooper()).post {
-                    this@OneTrustKit.setConsentStateEvent(
-                        user,
-                        purpose,
-                        status,
-                        regulation
-                    )
-                }
-            }
-        }
-    }
-
     // Create an mParticle consent state based on One Trust mapping
     // Status is an integer that probably should be a boolean
     //  1 = Consent Given
     //  0 = Consent Not Given
     // -1 = Consent has not been collected/ sdk is not yet initialized
-    internal fun setConsentStateEvent(
-        user: MParticleUser,
-        purpose: String?,
-        status: Int,
-        regulation: ConsentRegulation
-    ) {
-        createConsentEvent(user, purpose, status, regulation)?.let { user.setConsentState(it) }
+    internal fun processOneTrustConsents() {
+        val time = System.currentTimeMillis()
+        MParticle.getInstance()?.Identity()?.currentUser?.let { user ->
+            purposeConsentMapping.forEach { entry ->
+                val purpose = entry.key
+                val regulation = entry.value.regulation
+                val status = oneTrustSdk.getConsentStatusForGroupId(purpose)
+                if (status != -1) {
+                    createOrUpdateConsent(
+                        user,
+                        purpose,
+                        status,
+                        regulation,
+                        time
+                    )?.let { user.setConsentState(it) }
+                }
+            }
+        } ?: run {
+            Logger.warning("MParticle user is not set")
+        }
     }
 
-    internal fun createConsentEvent(
+    internal fun createOrUpdateConsent(
         user: MParticleUser,
         purpose: String?,
         status: Int,
-        regulation: ConsentRegulation
+        regulation: ConsentRegulation,
+        timestamp: Long
     ): ConsentState? {
         var consentState: ConsentState? = null
         when (regulation) {
@@ -184,26 +139,50 @@ class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
                 }
                 consentState = GDPRConsent
                     .builder(status == 1)
-                    .timestamp(System.currentTimeMillis())
+                    .timestamp(timestamp)
                     .build()
-                    .updateTemporaryConsentState(user, purpose)
+                    .updateTemporaryConsentState(user, purpose, timestamp)
             }
             ConsentRegulation.CCPA -> {
                 consentState = CCPAConsent
                     .builder(status == 1)
-                    .timestamp(System.currentTimeMillis())
+                    .timestamp(timestamp)
                     .build()
-                    .updateTemporaryConsentState(user)
+                    .updateTemporaryConsentState(user, timestamp)
             }
         }
         return consentState
     }
 
-    private fun CCPAConsent.updateTemporaryConsentState(user: MParticleUser): ConsentState {
+    private fun CCPAConsent.updateTimestamp(timestamp: Long): CCPAConsent =
+        CCPAConsent.builder(this.isConsented).timestamp(timestamp)
+            .document(this.document).hardwareId(this.hardwareId).location(this.location).build()
+
+    private fun MutableMap<String, GDPRConsent>.updateTimestamps(timestamp: Long): MutableMap<String, GDPRConsent> {
+        this.entries.forEach {
+            val consent = it.value
+            this.put(
+                it.key, GDPRConsent.builder(consent.isConsented)
+                    .timestamp(timestamp)
+                    .document(consent.document)
+                    .hardwareId(consent.hardwareId)
+                    .location(consent.location)
+                    .build()
+            )
+        }
+        return this
+    }
+
+    private fun CCPAConsent.updateTemporaryConsentState(
+        user: MParticleUser,
+        timestamp: Long
+    ): ConsentState {
         val builder = ConsentState.builder()
         try {
             builder.setCCPAConsentState(this)
-            builder.setGDPRConsentState(user.consentState.gdprConsentState)
+            builder.setGDPRConsentState(
+                user.consentState.gdprConsentState.toMutableMap().updateTimestamps(timestamp)
+            )
         } catch (e: Exception) {
         }
         return builder.build()
@@ -211,12 +190,19 @@ class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
 
     private fun GDPRConsent.updateTemporaryConsentState(
         user: MParticleUser,
-        purpose: String?
+        purpose: String?,
+        timestamp: Long
     ): ConsentState {
         val builder = ConsentState.builder()
         try {
             val currentConsent = user.consentState
-            currentConsent?.ccpaConsentState?.let { builder.setCCPAConsentState(it) }
+            currentConsent.ccpaConsentState?.let {
+                builder.setCCPAConsentState(
+                    it.updateTimestamp(
+                        timestamp
+                    )
+                )
+            }
             if (!purpose.isNullOrEmpty()) {
                 val mergedGDPRConsent: MutableMap<String, GDPRConsent> =
                     currentConsent.gdprConsentState.toMutableMap()
@@ -238,7 +224,10 @@ class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
         editor.apply()
     }
 
-    internal fun updateVendorConsents(consentMapping: Map<String, OneTrustConsent>, mode: String) {
+    internal fun updateVendorConsents(
+        consentMapping: Map<String, OneTrustConsent>,
+        mode: String
+    ) {
         consentMapping
             .entries
             .iterator()
@@ -309,39 +298,8 @@ class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
             .associate { it.first to it.second }
     }
 
-    override fun onIdentifyCompleted(
-        mParticleUser: MParticleUser?,
-        identityApiRequest: FilteredIdentityApiRequest?
-    ) {
+    override fun onUserIdentified(user: MParticleUser, previousUser: MParticleUser?) {
+
     }
 
-    override fun onLoginCompleted(
-        mParticleUser: MParticleUser?,
-        identityApiRequest: FilteredIdentityApiRequest?
-    ) {
-    }
-
-    override fun onLogoutCompleted(
-        mParticleUser: MParticleUser?,
-        identityApiRequest: FilteredIdentityApiRequest?
-    ) {
-    }
-
-    override fun onModifyCompleted(
-        mParticleUser: MParticleUser?,
-        identityApiRequest: FilteredIdentityApiRequest?
-    ) {
-    }
-
-    override fun onUserIdentified(mParticleUser: MParticleUser?) {
-        mParticleUser?.let { setUserIdentified(it) }
-    }
-
-    private fun setUserIdentified(user: MParticleUser) {
-        if (deferConsentApplication) {
-            Logger.info("MParticle user is now present, will apply deferred consent application")
-            applyCurrentConsentState(user)
-            deferConsentApplication = false
-        }
-    }
 }

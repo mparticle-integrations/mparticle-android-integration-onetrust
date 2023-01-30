@@ -50,6 +50,7 @@ class KitTests {
      */
     @Test
     fun testCreateConsentEventGDPR() {
+        val timestamp = System.currentTimeMillis()
         val user = Mockito.mock(MParticleUser::class.java)
         val gdprConsent = GDPRConsent.builder(false).build()
         var currentConsentState =
@@ -59,9 +60,16 @@ class KitTests {
         assertEquals(gdprConsent, currentConsentState.gdprConsentState.get("purpose1"))
         assertNull(currentConsentState.ccpaConsentState)
         currentConsentState =
-            kit.createConsentEvent(user, "purpose2", 1, OneTrustKit.ConsentRegulation.GDPR)!!
+            kit.createOrUpdateConsent(
+                user,
+                "purpose2",
+                1,
+                OneTrustKit.ConsentRegulation.GDPR,
+                timestamp
+            )!!
         assertEquals(2, currentConsentState.gdprConsentState.size)
         assertEquals(gdprConsent, currentConsentState.gdprConsentState.get("purpose1"))
+        assertEquals(currentConsentState.gdprConsentState.get("purpose2")?.timestamp, timestamp)
         assertTrue(currentConsentState.gdprConsentState.containsKey("purpose2"))
         assertEquals(true, currentConsentState.gdprConsentState.get("purpose2")!!.isConsented)
         assertNull(currentConsentState.ccpaConsentState)
@@ -73,6 +81,7 @@ class KitTests {
      */
     @Test
     fun testCreateConsentEventCCPA() {
+        val timestamp = System.currentTimeMillis()
         val user = Mockito.mock(MParticleUser::class.java)
         val ccpaConsent = CCPAConsent.builder(false).location("loc1").build()
         var currentConsentState = ConsentState.builder().setCCPAConsentState(ccpaConsent).build()
@@ -83,10 +92,47 @@ class KitTests {
         assertEquals(false, currentConsentState.ccpaConsentState?.isConsented)
 
         currentConsentState =
-            kit.createConsentEvent(user, "ccpa", 1, OneTrustKit.ConsentRegulation.CCPA)!!
+            kit.createOrUpdateConsent(
+                user,
+                "ccpa",
+                1,
+                OneTrustKit.ConsentRegulation.CCPA,
+                timestamp
+            )!!
         assertEquals(0, currentConsentState.gdprConsentState.size)
+        assertEquals(currentConsentState.ccpaConsentState?.timestamp, timestamp)
         assertEquals(true, currentConsentState.ccpaConsentState?.isConsented)
         assertNull(currentConsentState.ccpaConsentState?.location)
+    }
+
+    @Test
+    fun testCreateUpdate() {
+        val timestamp = System.currentTimeMillis()
+        val user = Mockito.mock(MParticleUser::class.java)
+        val ccpaConsent = CCPAConsent.builder(false).timestamp(timestamp).build()
+        var currentConsentStateBuilder = ConsentState.builder().setCCPAConsentState(ccpaConsent)
+
+        val gdprConsent = GDPRConsent.builder(false).timestamp(timestamp).build()
+        var currentConsentState = currentConsentStateBuilder.addGDPRConsentState("purpose1", gdprConsent).build()
+        `when`(user.consentState).thenReturn(currentConsentState)
+        assertEquals(1, currentConsentState.gdprConsentState.size)
+        assertEquals(gdprConsent, currentConsentState.gdprConsentState.get("purpose1"))
+        currentConsentState =
+            kit.createOrUpdateConsent(
+                user,
+                "purpose2",
+                1,
+                OneTrustKit.ConsentRegulation.GDPR,
+                timestamp
+            )!!
+        assertEquals(2, currentConsentState.gdprConsentState.size)
+        assertEquals(gdprConsent, currentConsentState.gdprConsentState.get("purpose1"))
+        assertEquals(gdprConsent.timestamp,  currentConsentState.gdprConsentState.get("purpose1")?.timestamp)
+        assertEquals(currentConsentState.gdprConsentState.get("purpose2")?.timestamp, timestamp)
+        assertTrue(currentConsentState.gdprConsentState.containsKey("purpose2"))
+        assertEquals(true, currentConsentState.gdprConsentState.get("purpose2")!!.isConsented)
+        assertEquals(currentConsentState.ccpaConsentState?.timestamp, timestamp)
+        assertEquals(false, currentConsentState.ccpaConsentState?.isConsented)
     }
 
     @Test
