@@ -20,7 +20,7 @@ import org.json.JSONException
 import org.json.JSONObject
 
 
-class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
+class OneTrustKit : KitIntegration(), IdentityListener {
 
     internal enum class ConsentRegulation { GDPR, CCPA }
     internal class OneTrustConsent(val purpose: String, val regulation: ConsentRegulation)
@@ -297,10 +297,6 @@ class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
         }
             .filterNotNull()
             .associate { it.first to it.second }
-    }
-
-    override fun onUserIdentified(user: MParticleUser, previousUser: MParticleUser?) {
-        processOneTrustConsents()
     }
 
     override fun onIdentifyCompleted(
