@@ -11,6 +11,7 @@ import com.mparticle.consent.GDPRConsent
 import com.mparticle.identity.IdentityStateListener
 import com.mparticle.identity.MParticleUser
 import com.mparticle.internal.Logger
+import com.mparticle.kits.KitIntegration.IdentityListener
 import com.onetrust.otpublishers.headless.Public.Keys.OTBroadcastServiceKeys
 import com.onetrust.otpublishers.headless.Public.OTPublishersHeadlessSDK
 import com.onetrust.otpublishers.headless.Public.OTVendorListMode
@@ -19,7 +20,7 @@ import org.json.JSONException
 import org.json.JSONObject
 
 
-class OneTrustKit : KitIntegration(), IdentityStateListener {
+class OneTrustKit : KitIntegration(), IdentityStateListener, IdentityListener {
 
     internal enum class ConsentRegulation { GDPR, CCPA }
     internal class OneTrustConsent(val purpose: String, val regulation: ConsentRegulation)
@@ -299,7 +300,35 @@ class OneTrustKit : KitIntegration(), IdentityStateListener {
     }
 
     override fun onUserIdentified(user: MParticleUser, previousUser: MParticleUser?) {
+        processOneTrustConsents()
+    }
 
+    override fun onIdentifyCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?
+    ) {
+    }
+
+    override fun onLoginCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?
+    ) {
+    }
+
+    override fun onLogoutCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?
+    ) {
+    }
+
+    override fun onModifyCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?
+    ) {
+    }
+
+    override fun onUserIdentified(mParticleUser: MParticleUser?) {
+        processOneTrustConsents()
     }
 
 }
