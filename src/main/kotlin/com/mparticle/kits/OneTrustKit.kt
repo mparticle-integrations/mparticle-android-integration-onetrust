@@ -106,9 +106,9 @@ class OneTrustKit : KitIntegration(), IdentityListener {
         val time = System.currentTimeMillis()
         MParticle.getInstance()?.Identity()?.currentUser?.let { user ->
             purposeConsentMapping.forEach { entry ->
-                val purpose = entry.key
+                val purpose = entry.value.purpose
                 val regulation = entry.value.regulation
-                val status = oneTrustSdk.getConsentStatusForGroupId(purpose)
+                val status = oneTrustSdk.getConsentStatusForGroupId(entry.key)
                 if (status != -1) {
                     createOrUpdateConsent(
                         user,
