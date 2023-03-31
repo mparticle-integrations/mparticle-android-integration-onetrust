@@ -103,117 +103,17 @@ class OneTrustKit : KitIntegration(), IdentityListener {
     //  0 = Consent Not Given
     // -1 = Consent has not been collected/ sdk is not yet initialized
     internal fun processOneTrustConsents() {
-        val time = System.currentTimeMillis()
         MParticle.getInstance()?.Identity()?.currentUser?.let { user ->
             purposeConsentMapping.forEach { entry ->
-                val purpose = entry.value.purpose
-                val regulation = entry.value.regulation
                 val status = oneTrustSdk.getConsentStatusForGroupId(entry.key)
+
                 if (status != -1) {
-                    createOrUpdateConsent(
-                        user,
-                        purpose,
-                        status,
-                        regulation,
-                        time
-                    )?.let { user.setConsentState(it) }
+                    setConsentStateEvent(entry.value, status)
                 }
             }
         } ?: run {
             Logger.warning("MParticle user is not set")
         }
-    }
-
-    internal fun createOrUpdateConsent(
-        user: MParticleUser,
-        purpose: String?,
-        status: Int,
-        regulation: ConsentRegulation,
-        timestamp: Long
-    ): ConsentState? {
-        var consentState: ConsentState? = null
-        when (regulation) {
-            ConsentRegulation.GDPR -> {
-                if (purpose == null) {
-                    Logger.warning("Purpose is required for GDPR Consent Events")
-                    return null
-                }
-                consentState = GDPRConsent
-                    .builder(status == 1)
-                    .timestamp(timestamp)
-                    .build()
-                    .updateTemporaryConsentState(user, purpose, timestamp)
-            }
-            ConsentRegulation.CCPA -> {
-                consentState = CCPAConsent
-                    .builder(status == 1)
-                    .timestamp(timestamp)
-                    .build()
-                    .updateTemporaryConsentState(user, timestamp)
-            }
-        }
-        return consentState
-    }
-
-    private fun CCPAConsent.updateTimestamp(timestamp: Long): CCPAConsent =
-        CCPAConsent.builder(this.isConsented).timestamp(timestamp)
-            .document(this.document).hardwareId(this.hardwareId).location(this.location).build()
-
-    private fun MutableMap<String, GDPRConsent>.updateTimestamps(timestamp: Long): MutableMap<String, GDPRConsent> {
-        this.entries.forEach {
-            val consent = it.value
-            this.put(
-                it.key, GDPRConsent.builder(consent.isConsented)
-                    .timestamp(timestamp)
-                    .document(consent.document)
-                    .hardwareId(consent.hardwareId)
-                    .location(consent.location)
-                    .build()
-            )
-        }
-        return this
-    }
-
-    private fun CCPAConsent.updateTemporaryConsentState(
-        user: MParticleUser,
-        timestamp: Long
-    ): ConsentState {
-        val builder = ConsentState.builder()
-        try {
-            builder.setCCPAConsentState(this)
-            builder.setGDPRConsentState(
-                user.consentState.gdprConsentState.toMutableMap().updateTimestamps(timestamp)
-            )
-        } catch (e: Exception) {
-        }
-        return builder.build()
-    }
-
-    private fun GDPRConsent.updateTemporaryConsentState(
-        user: MParticleUser,
-        purpose: String?,
-        timestamp: Long
-    ): ConsentState {
-        val builder = ConsentState.builder()
-        try {
-            val currentConsent = user.consentState
-            currentConsent.ccpaConsentState?.let {
-                builder.setCCPAConsentState(
-                    it.updateTimestamp(
-                        timestamp
-                    )
-                )
-            }
-            if (!purpose.isNullOrEmpty()) {
-                val mergedGDPRConsent: MutableMap<String, GDPRConsent> =
-                    currentConsent.gdprConsentState.toMutableMap()
-                mergedGDPRConsent[purpose] = this
-                builder.setGDPRConsentState(mergedGDPRConsent)
-            }
-        } catch (e: Exception) {
-
-        }
-        return builder.build()
     }
 
     fun saveToDisk(key: String, mappingData: String?) {
@@ -250,17 +150,20 @@ class OneTrustKit : KitIntegration(), IdentityListener {
         val user = MParticle.getInstance()?.Identity()?.currentUser
             ?: Logger.warning("current user is not present").let { return }
         val consented = status == 1
+        val time = System.currentTimeMillis()
 
         val consentState = user.consentState.let { ConsentState.withConsentState(it) }
         when (consentMapping.regulation) {
             ConsentRegulation.GDPR -> {
                 consentState.addGDPRConsentState(
                     consentMapping.purpose,
-                    GDPRConsent.builder(consented).build()
+                    GDPRConsent.builder(consented)
+                        .timestamp(time)
+                        .build()
                 )
             }
             ConsentRegulation.CCPA -> {
-                consentState.setCCPAConsentState(CCPAConsent.builder(consented).build())
+                consentState.setCCPAConsentState(CCPAConsent.builder(consented).timestamp(time).build())
             }
         }
         user.setConsentState(consentState.build())
