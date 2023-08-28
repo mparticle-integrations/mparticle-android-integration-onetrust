@@ -36,5 +36,5 @@ apply plugin: 'com.mparticle.kit'
 
 dependencies {
     testImplementation fileTree(dir: 'libs', include: ['*.jar'])
-    compileOnly 'com.onetrust.cmp:native-sdk:202301.2.0.0'
+    compileOnly 'com.onetrust.cmp:native-sdk:202308.2.0.0'
 }
