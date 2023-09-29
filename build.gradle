@@ -35,6 +35,5 @@ apply plugin: 'kotlin-android'
 apply plugin: 'com.mparticle.kit'
 
 dependencies {
-    testImplementation fileTree(dir: 'libs', include: ['*.jar'])
-    compileOnly 'com.onetrust.cmp:native-sdk:202308.2.0'
+    implementation 'com.onetrust.cmp:native-sdk:202309.1.0.0'
 }
