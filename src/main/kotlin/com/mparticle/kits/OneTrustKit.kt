@@ -104,7 +104,7 @@ class OneTrustKit : KitIntegration(), IdentityListener {
     // -1 = Consent has not been collected/ sdk is not yet initialized
     internal fun processOneTrustConsents() {
         MParticle.getInstance()?.Identity()?.currentUser?.let { user ->
-            purposeConsentMapping.forEach { entry ->
+            purposeConsentMapping?.iterator()?.forEach { entry ->
                 val status = oneTrustSdk.getConsentStatusForGroupId(entry.key)
 
                 if (status != -1) {
