@@ -11,10 +11,10 @@ This repository contains the [OneTrust](https://www.onetrust.com) integration fo
     ```groovy
     dependencies {
         implementation 'com.mparticle:android-onetrust-kit:5+'
-    // Implement the SDK version that corresponds to the published version you're using'
+        // Implement the SDK version that corresponds to the published version you're using'
         implementation 'com.onetrust.cmp:native-sdk:X.X.0.0'
 
-    // Example: 
+        // Example: 
         implementation 'com.onetrust.cmp:native-sdk:202308.1.0.0'
     }
 }
