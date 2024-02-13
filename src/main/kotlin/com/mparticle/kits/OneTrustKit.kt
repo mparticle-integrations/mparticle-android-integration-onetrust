@@ -1,9 +1,11 @@
 package com.mparticle.kits
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import com.mparticle.MParticle
 import com.mparticle.consent.CCPAConsent
 import com.mparticle.consent.ConsentState
@@ -31,7 +33,7 @@ class OneTrustKit : KitIntegration(), IdentityListener {
 
     private val oneTrustSdk: OTPublishersHeadlessSDK by lazy { OTPublishersHeadlessSDK(context) }
 
-    private var mpAllConsentMapping = mutableMapOf<String, OneTrustConsent>()
+    private var consentMappings = mutableMapOf<String, OneTrustConsent>()
 
     companion object {
         private var initializedOnce = false
@@ -52,16 +54,21 @@ class OneTrustKit : KitIntegration(), IdentityListener {
         return listOf()
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     public override fun onKitCreate(settings: Map<String, String>, context: Context): List<ReportingMessage> {
-        processMappings(settings[MobileConsentGroups])
-        processMappings(settings[IabConsentGroups], OTVendorListMode.IAB)
-        processMappings(settings[GoogleConsentGroups], OTVendorListMode.GOOGLE)
-        processMappings(settings[GeneralConsentGroups], OTVendorListMode.GENERAL)
+        processConsentMappings(settings[MobileConsentGroups])
+        processConsentMappings(settings[IabConsentGroups], OTVendorListMode.IAB)
+        processConsentMappings(settings[GoogleConsentGroups], OTVendorListMode.GOOGLE)
+        processConsentMappings(settings[GeneralConsentGroups], OTVendorListMode.GENERAL)
 
         if (!initializedOnce) {
             initializedOnce = true
             processOneTrustConsent()
-            context.registerReceiver(consentUpdatedReceiver, IntentFilter(OTBroadcastServiceKeys.OT_CONSENT_UPDATED))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(consentUpdatedReceiver, IntentFilter(OTBroadcastServiceKeys.OT_CONSENT_UPDATED), Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(consentUpdatedReceiver, IntentFilter(OTBroadcastServiceKeys.OT_CONSENT_UPDATED))
+            }
         }
         return listOf()
     }
@@ -70,7 +77,7 @@ class OneTrustKit : KitIntegration(), IdentityListener {
         return oneTrustSdk
     }
 
-    internal fun processMappings(setting: String?, vendorType: String? = null) {
+    internal fun processConsentMappings(setting: String?, vendorType: String? = null) {
         if (!setting.isNullOrEmpty()) {
             try {
                 val settingJSON = JSONArray(setting)
@@ -86,7 +93,7 @@ class OneTrustKit : KitIntegration(), IdentityListener {
                     } else if (mpPurposeCode.isNullOrEmpty()) {
                         Logger.warning("Consent mapping is missing mParticle's side: $this")
                     } else {
-                        mpAllConsentMapping[otPurposeCode] = OneTrustConsent(vendorType, mpPurposeCode, mpRegulation)
+                        consentMappings[otPurposeCode] = OneTrustConsent(vendorType, mpPurposeCode, mpRegulation)
                     }
                 }
 
@@ -98,16 +105,17 @@ class OneTrustKit : KitIntegration(), IdentityListener {
 
     internal fun processOneTrustConsent() {
         MParticle.getInstance()?.Identity()?.currentUser?.let { user ->
-            mpAllConsentMapping.iterator().forEach { entry ->
+            for (consentMapping in consentMappings) {
                 var status: Int = 0
                 try {
-                    if (!entry.value.vendorType.isNullOrEmpty()) {
-                        status = oneTrustSdk.getVendorDetails(entry.value.vendorType!!, entry.key)!!.getInt("consent")
+                    if (!consentMapping.value.vendorType.isNullOrEmpty()) {
+                        status = oneTrustSdk.getVendorDetails(consentMapping.value.vendorType!!, consentMapping.key)!!.getInt("consent")
                     } else {
-                        status = oneTrustSdk.getConsentStatusForGroupId(entry.key)
+                        status = oneTrustSdk.getConsentStatusForGroupId(consentMapping.key)
                     }
                 } catch (e: Exception) {
                     Logger.error(e, "Could not fetch consent from OneTrust!")
+                    continue
                 }
 
                 // -1 = Consent Not Collected
@@ -115,7 +123,7 @@ class OneTrustKit : KitIntegration(), IdentityListener {
                     // 0 = Consent Not Given
                     // 1 or 2 = Consent Given
                     val consentGiven: Boolean = status > 0
-                    setConsentStateEvent(user, entry.value, consentGiven)
+                    setConsentStateEvent(user, consentMapping.value, consentGiven)
                 }
             }
         } ?: run {
