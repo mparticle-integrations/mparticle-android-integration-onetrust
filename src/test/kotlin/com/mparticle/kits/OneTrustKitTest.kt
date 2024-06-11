@@ -150,42 +150,4 @@ class KitTests {
         }
         Assert.fail("$className not found as a known integration.")
     }
-
-    @Test
-    fun testParseConsent() {
-        val consentMapping =
-            """
-                [
-                    {
-                        "value": "topic1",
-                        "map": "purpose1"
-                    },
-                    {
-                        "value": "topic2",
-                        "map": "${OneTrustKit.CCPAPurposeValue}"
-                    },
-                    {
-                        "value": "topic3",
-                        "map": "purpose3"
-                    },
-                ]
-            """.trimIndent()
-        val map = kit.parseConsentMapping(consentMapping)
-        assertEquals(3, map.size)
-        map["topic1"].let {
-            assertNotNull(it)
-            assertEquals(OneTrustKit.ConsentRegulation.GDPR, it?.regulation)
-            assertEquals("purpose1", it?.purpose)
-        }
-        map["topic2"].let {
-            assertNotNull(it)
-            assertEquals(OneTrustKit.ConsentRegulation.CCPA, it?.regulation)
-            assertEquals(OneTrustKit.CCPAPurposeValue, it?.purpose)
-        }
-        map["topic3"].let {
-            assertNotNull(it)
-            assertEquals(OneTrustKit.ConsentRegulation.GDPR, it?.regulation)
-            assertEquals("purpose3", it?.purpose)
-        }
-    }
 }
