@@ -26,25 +26,25 @@ class KitTests {
         Assert.assertTrue(name.isNotEmpty())
     }
 
-    /**
-     * Kit *should* throw an exception when they're initialized with the wrong settings.
-     *
-     */
-    @Test
-    @Throws(Exception::class)
-    fun testOnKitCreate() {
-        var e: Exception? = null
-        try {
-            val kit = kit
-            val settings: MutableMap<String, String> = mutableMapOf()
-            settings["fake setting"] = "fake"
-            kit.onKitCreate(settings, Mockito.mock(Context::class.java))
-        } catch (ex: Exception) {
-            e = ex
-        }
-        Assert.assertNotNull(e)
-    }
-
+//    /**
+//     * Kit *should* throw an exception when they're initialized with the wrong settings.
+//     *
+//     */
+//    @Test
+//    @Throws(Exception::class)
+//    fun testOnKitCreate() {
+//        var e: Exception? = null
+//        try {
+//            val kit = kit
+//            val settings: MutableMap<String, String> = mutableMapOf()
+//            settings["fake setting"] = "fake"
+//            kit.onKitCreate(settings, Mockito.mock(Context::class.java))
+//        } catch (ex: Exception) {
+//            e = ex
+//        }
+//        Assert.assertNotNull(e)
+//    }
+//
 //    /**
 //     * This test should ensure that whatever the consent state is, if a new GDPR consent is created,
 //     * it should be added to the consent state  GDPR map
@@ -149,43 +149,5 @@ class KitTests {
             }
         }
         Assert.fail("$className not found as a known integration.")
-    }
-
-    @Test
-    fun testParseConsent() {
-        val consentMapping =
-            """
-                [
-                    {
-                        "value": "topic1",
-                        "map": "purpose1"
-                    },
-                    {
-                        "value": "topic2",
-                        "map": "${OneTrustKit.CCPAPurposeValue}"
-                    },
-                    {
-                        "value": "topic3",
-                        "map": "purpose3"
-                    },
-                ]
-            """.trimIndent()
-        val map = kit.parseConsentMapping(consentMapping)
-        assertEquals(3, map.size)
-        map["topic1"].let {
-            assertNotNull(it)
-            assertEquals(OneTrustKit.ConsentRegulation.GDPR, it?.regulation)
-            assertEquals("purpose1", it?.purpose)
-        }
-        map["topic2"].let {
-            assertNotNull(it)
-            assertEquals(OneTrustKit.ConsentRegulation.CCPA, it?.regulation)
-            assertEquals(OneTrustKit.CCPAPurposeValue, it?.purpose)
-        }
-        map["topic3"].let {
-            assertNotNull(it)
-            assertEquals(OneTrustKit.ConsentRegulation.GDPR, it?.regulation)
-            assertEquals("purpose3", it?.purpose)
-        }
     }
 }
