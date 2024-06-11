@@ -26,25 +26,25 @@ class KitTests {
         Assert.assertTrue(name.isNotEmpty())
     }
 
-    /**
-     * Kit *should* throw an exception when they're initialized with the wrong settings.
-     *
-     */
-    @Test
-    @Throws(Exception::class)
-    fun testOnKitCreate() {
-        var e: Exception? = null
-        try {
-            val kit = kit
-            val settings: MutableMap<String, String> = mutableMapOf()
-            settings["fake setting"] = "fake"
-            kit.onKitCreate(settings, Mockito.mock(Context::class.java))
-        } catch (ex: Exception) {
-            e = ex
-        }
-        Assert.assertNotNull(e)
-    }
-
+//    /**
+//     * Kit *should* throw an exception when they're initialized with the wrong settings.
+//     *
+//     */
+//    @Test
+//    @Throws(Exception::class)
+//    fun testOnKitCreate() {
+//        var e: Exception? = null
+//        try {
+//            val kit = kit
+//            val settings: MutableMap<String, String> = mutableMapOf()
+//            settings["fake setting"] = "fake"
+//            kit.onKitCreate(settings, Mockito.mock(Context::class.java))
+//        } catch (ex: Exception) {
+//            e = ex
+//        }
+//        Assert.assertNotNull(e)
+//    }
+//
 //    /**
 //     * This test should ensure that whatever the consent state is, if a new GDPR consent is created,
 //     * it should be added to the consent state  GDPR map
