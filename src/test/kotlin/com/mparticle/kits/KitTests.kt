@@ -1,23 +1,16 @@
 package com.mparticle.kits
 
-import android.content.Context
 import com.mparticle.MParticleOptions
-import com.mparticle.consent.CCPAConsent
-import com.mparticle.consent.ConsentState
-import com.mparticle.consent.GDPRConsent
-import com.mparticle.identity.MParticleUser
+import com.mparticle.kits.KitIntegration
+import com.mparticle.kits.KitIntegrationFactory
 import org.junit.Assert
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito
-import org.mockito.Mockito.`when`
 
 class KitTests {
-    private val kit = OneTrustKit()
+    private val kit: KitIntegration
+        get() = OneTrustKit()
 
     @Test
     @Throws(Exception::class)

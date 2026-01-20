@@ -36,6 +36,9 @@ apply plugin: 'com.mparticle.kit'
 
 android {
     namespace 'com.mparticle.kits.onetrust'
+    buildFeatures {
+        buildConfig = true
+    }
     defaultConfig {
         minSdkVersion 21
     }
@@ -57,4 +60,6 @@ dependencies {
     testImplementation fileTree(dir: 'libs', include: ['*.jar'])
     //note that compileOnly requires kit users to define the dependency themselves
     compileOnly 'com.onetrust.cmp:native-sdk:202411.2.0.0'
+    // Add as testImplementation so tests can load OneTrustKit class
+    testImplementation 'com.onetrust.cmp:native-sdk:202411.2.0.0'
 }
