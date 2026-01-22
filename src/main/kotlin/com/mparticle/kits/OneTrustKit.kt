@@ -19,17 +19,26 @@ import com.onetrust.otpublishers.headless.Public.OTVendorListMode
 import org.json.JSONArray
 import org.json.JSONException
 
-class OneTrustKit : KitIntegration(), IdentityListener {
-
+class OneTrustKit :
+    KitIntegration(),
+    IdentityListener {
     internal enum class ConsentRegulation { GDPR, CCPA }
 
-    internal class OneTrustConsent(val vendorType: String? = null, val purpose: String, val regulation: ConsentRegulation)
+    internal class OneTrustConsent(
+        val vendorType: String? = null,
+        val purpose: String,
+        val regulation: ConsentRegulation,
+    )
 
-    private val consentUpdatedReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            processOneTrustConsent()
+    private val consentUpdatedReceiver: BroadcastReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                processOneTrustConsent()
+            }
         }
-    }
 
     private val oneTrustSdk: OTPublishersHeadlessSDK by lazy { OTPublishersHeadlessSDK(context) }
 
@@ -38,34 +47,37 @@ class OneTrustKit : KitIntegration(), IdentityListener {
     companion object {
         private var initializedOnce = false
 
-        private const val MobileConsentGroups = "mobileConsentGroups"
-        private const val IabConsentGroups = "vendorIABConsentGroups"
-        private const val GoogleConsentGroups = "vendorGoogleConsentGroups"
-        private const val GeneralConsentGroups = "vendorGeneralConsentGroups"
+        private const val MOBILE_CONSENT_GROUPS = "mobileConsentGroups"
+        private const val IAB_CONSENT_GROUPS = "vendorIABConsentGroups"
+        private const val GOOGLE_CONSENT_GROUPS = "vendorGoogleConsentGroups"
+        private const val GENERAL_CONSENT_GROUPS = "vendorGeneralConsentGroups"
 
-        internal const val CCPAPurposeValue = "data_sale_opt_out"
+        internal const val CCPA_PURPOSE_VALUE = "data_sale_opt_out"
     }
 
-    override fun getName(): String {
-        return "OneTrust"
-    }
+    override fun getName(): String = "OneTrust"
 
-    override fun setOptOut(optedOut: Boolean): List<ReportingMessage> {
-        return listOf()
-    }
+    override fun setOptOut(optedOut: Boolean): List<ReportingMessage> = listOf()
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
-    public override fun onKitCreate(settings: Map<String, String>, context: Context): List<ReportingMessage> {
-        processConsentMappings(settings[MobileConsentGroups])
-        processConsentMappings(settings[IabConsentGroups], OTVendorListMode.IAB)
-        processConsentMappings(settings[GoogleConsentGroups], OTVendorListMode.GOOGLE)
-        processConsentMappings(settings[GeneralConsentGroups], OTVendorListMode.GENERAL)
+    public override fun onKitCreate(
+        settings: Map<String, String>,
+        context: Context,
+    ): List<ReportingMessage> {
+        processConsentMappings(settings[MOBILE_CONSENT_GROUPS])
+        processConsentMappings(settings[IAB_CONSENT_GROUPS], OTVendorListMode.IAB)
+        processConsentMappings(settings[GOOGLE_CONSENT_GROUPS], OTVendorListMode.GOOGLE)
+        processConsentMappings(settings[GENERAL_CONSENT_GROUPS], OTVendorListMode.GENERAL)
 
         if (!initializedOnce) {
             initializedOnce = true
             processOneTrustConsent()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(consentUpdatedReceiver, IntentFilter(OTBroadcastServiceKeys.OT_CONSENT_UPDATED), Context.RECEIVER_NOT_EXPORTED)
+                context.registerReceiver(
+                    consentUpdatedReceiver,
+                    IntentFilter(OTBroadcastServiceKeys.OT_CONSENT_UPDATED),
+                    Context.RECEIVER_NOT_EXPORTED,
+                )
             } else {
                 context.registerReceiver(consentUpdatedReceiver, IntentFilter(OTBroadcastServiceKeys.OT_CONSENT_UPDATED))
             }
@@ -73,11 +85,12 @@ class OneTrustKit : KitIntegration(), IdentityListener {
         return listOf()
     }
 
-    override fun getInstance(): Any {
-        return oneTrustSdk
-    }
+    override fun getInstance(): Any = oneTrustSdk
 
-    internal fun processConsentMappings(setting: String?, vendorType: String? = null) {
+    internal fun processConsentMappings(
+        setting: String?,
+        vendorType: String? = null,
+    ) {
         if (!setting.isNullOrEmpty()) {
             try {
                 val settingJSON = JSONArray(setting)
@@ -86,7 +99,7 @@ class OneTrustKit : KitIntegration(), IdentityListener {
                     val p = settingJSON.getJSONObject(i)
                     val otPurposeCode = p.optString("value")
                     val mpPurposeCode = p.optString("map")
-                    val mpRegulation = if (mpPurposeCode == CCPAPurposeValue) ConsentRegulation.CCPA else ConsentRegulation.GDPR
+                    val mpRegulation = if (mpPurposeCode == CCPA_PURPOSE_VALUE) ConsentRegulation.CCPA else ConsentRegulation.GDPR
 
                     if (otPurposeCode.isNullOrEmpty()) {
                         Logger.warning("Consent mapping is missing OneTrust's side: $this")
@@ -96,7 +109,6 @@ class OneTrustKit : KitIntegration(), IdentityListener {
                         consentMappings[otPurposeCode] = OneTrustConsent(vendorType, mpPurposeCode, mpRegulation)
                     }
                 }
-
             } catch (jse: JSONException) {
                 Logger.error(jse, "Could not parse consent mapping!")
             }
@@ -131,7 +143,11 @@ class OneTrustKit : KitIntegration(), IdentityListener {
         }
     }
 
-    internal fun setConsentStateEvent(user: MParticleUser, consentMapping: OneTrustConsent, consentGiven: Boolean) {
+    internal fun setConsentStateEvent(
+        user: MParticleUser,
+        consentMapping: OneTrustConsent,
+        consentGiven: Boolean,
+    ) {
         val time = System.currentTimeMillis()
 
         val consentState = user.consentState.let { ConsentState.withConsentState(it) }
@@ -147,16 +163,28 @@ class OneTrustKit : KitIntegration(), IdentityListener {
         user.setConsentState(consentState.build())
     }
 
-    override fun onIdentifyCompleted(mParticleUser: MParticleUser?, identityApiRequest: FilteredIdentityApiRequest?) {
+    override fun onIdentifyCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?,
+    ) {
     }
 
-    override fun onLoginCompleted(mParticleUser: MParticleUser?, identityApiRequest: FilteredIdentityApiRequest?) {
+    override fun onLoginCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?,
+    ) {
     }
 
-    override fun onLogoutCompleted(mParticleUser: MParticleUser?, identityApiRequest: FilteredIdentityApiRequest?) {
+    override fun onLogoutCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?,
+    ) {
     }
 
-    override fun onModifyCompleted(mParticleUser: MParticleUser?, identityApiRequest: FilteredIdentityApiRequest?) {
+    override fun onModifyCompleted(
+        mParticleUser: MParticleUser?,
+        identityApiRequest: FilteredIdentityApiRequest?,
+    ) {
     }
 
     override fun onUserIdentified(mParticleUser: MParticleUser?) {
